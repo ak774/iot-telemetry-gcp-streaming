@@ -1,0 +1,32 @@
+{
+  "combiner": "OR",
+  "conditions": [
+    {
+      "conditionPrometheusQueryLanguage": {
+        "duration": "0s",
+        "evaluationInterval": "60s",
+        "query": "sum(delta(dataflow_googleapis_com:job_user_counter{monitored_resource=\"dataflow_job\",metric_name=\"telemetry_payload_conflict\",job_name=\"__DATAFLOW_JOB_NAME__\"}[5m])) > 0"
+      },
+      "displayName": "Payload conflict detected",
+      "name": "projects/iot-gcp-streaming/alertPolicies/4870568466769178038/conditions/3573454930194808326"
+    }
+  ],
+  "creationRecord": {
+    "mutateTime": "2026-09-06T11:49:49.440844719Z",
+    "mutatedBy": "axu04103@gmail.com"
+  },
+  "displayName": "IoT Pipeline - Payload Conflict",
+  "documentation": {
+    "content": "CRITICAL: A telemetry event_id was observed with a payload different from the payload already registered. Investigate event integrity and producer behavior.",
+    "mimeType": "text/markdown"
+  },
+  "enabled": true,
+  "mutationRecord": {
+    "mutateTime": "2026-09-06T13:10:28.965705918Z",
+    "mutatedBy": "axu04103@gmail.com"
+  },
+  "name": "projects/iot-gcp-streaming/alertPolicies/4870568466769178038",
+  "notificationChannels": [
+    "projects/iot-gcp-streaming/notificationChannels/14350014564454715540"
+  ]
+}

@@ -1,0 +1,9 @@
+﻿{
+  "event_id": "e2e-valid-007",
+  "device_id": "device-test-001",
+  "event_timestamp": "2026-08-28T12:14:00Z",
+  "temperature": 25.5,
+  "humidity": 60.0,
+  "pressure": 1012.5,
+  "battery_level": 95.0
+}

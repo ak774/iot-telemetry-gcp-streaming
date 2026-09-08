@@ -1,0 +1,35 @@
+name: Test GCP Workload Identity
+
+on:
+  workflow_dispatch:
+
+jobs:
+  authenticate:
+    name: Test GCP Authentication
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/391196644919/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: iot-cicd-deployer@iot-gcp-streaming.iam.gserviceaccount.com
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Verify GCP identity
+        run: |
+          gcloud auth list
+          gcloud config get-value project
+
+      - name: Verify GCP access
+        run: |
+          gcloud projects describe iot-gcp-streaming --format="value(projectId)"

@@ -1,0 +1,344 @@
+{
+  "displayName": "IoT Streaming Pipeline - Production Observability",
+  "etag": "bbc1bcd64442dd45aa01cfa3e796d148",
+  "gridLayout": {
+    "columns": "2",
+    "widgets": [
+      {
+        "title": "Dataflow System Lag",
+        "xyChart": {
+          "dataSets": [
+            {
+              "plotType": "LINE",
+              "targetAxis": "Y1",
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "crossSeriesReducer": "REDUCE_MAX",
+                    "perSeriesAligner": "ALIGN_MEAN"
+                  },
+                  "filter": "metric.type=\"dataflow.googleapis.com/job/system_lag\" resource.type=\"dataflow_job\" resource.label.\"job_name\"=\"__DATAFLOW_JOB_NAME__\""
+                },
+                "unitOverride": "s"
+              }
+            }
+          ],
+          "yAxis": {
+            "label": "System lag (seconds)",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Valid Telemetry",
+        "xyChart": {
+          "dataSets": [
+            {
+              "plotType": "STACKED_AREA",
+              "targetAxis": "Y1",
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "crossSeriesReducer": "REDUCE_SUM",
+                    "perSeriesAligner": "ALIGN_MEAN"
+                  },
+                  "filter": "metric.type=\"dataflow.googleapis.com/job/user_counter\" resource.type=\"dataflow_job\" metric.label.\"metric_name\"=\"telemetry_valid\" resource.label.\"job_name\"=\"__DATAFLOW_JOB_NAME__\""
+                },
+                "unitOverride": "1"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "title": "Invalid Telemetry",
+        "xyChart": {
+          "dataSets": [
+            {
+              "plotType": "STACKED_AREA",
+              "targetAxis": "Y1",
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "crossSeriesReducer": "REDUCE_SUM",
+                    "perSeriesAligner": "ALIGN_MEAN"
+                  },
+                  "filter": "metric.type=\"dataflow.googleapis.com/job/user_counter\" resource.type=\"dataflow_job\" metric.label.\"metric_name\"=\"telemetry_invalid\" resource.label.\"job_name\"=\"__DATAFLOW_JOB_NAME__\""
+                },
+                "unitOverride": "1"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "title": "New Telemetry Events",
+        "xyChart": {
+          "dataSets": [
+            {
+              "plotType": "LINE",
+              "targetAxis": "Y1",
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "crossSeriesReducer": "REDUCE_SUM",
+                    "perSeriesAligner": "ALIGN_MEAN"
+                  },
+                  "filter": "metric.type=\"dataflow.googleapis.com/job/user_counter\" resource.type=\"dataflow_job\" metric.label.\"metric_name\"=\"spanner_new\" resource.label.\"job_name\"=\"__DATAFLOW_JOB_NAME__\""
+                },
+                "unitOverride": "1"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "title": "Replay Events",
+        "xyChart": {
+          "dataSets": [
+            {
+              "plotType": "LINE",
+              "targetAxis": "Y1",
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "crossSeriesReducer": "REDUCE_SUM",
+                    "perSeriesAligner": "ALIGN_MEAN"
+                  },
+                  "filter": "metric.type=\"dataflow.googleapis.com/job/user_counter\" resource.type=\"dataflow_job\" metric.label.\"metric_name\"=\"spanner_replay\" resource.label.\"job_name\"=\"__DATAFLOW_JOB_NAME__\""
+                },
+                "unitOverride": "1"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "title": "Payload Conflicts",
+        "xyChart": {
+          "dataSets": [
+            {
+              "plotType": "LINE",
+              "targetAxis": "Y1",
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "crossSeriesReducer": "REDUCE_SUM",
+                    "perSeriesAligner": "ALIGN_MEAN"
+                  },
+                  "filter": "metric.type=\"dataflow.googleapis.com/job/user_counter\" resource.type=\"dataflow_job\" metric.label.\"metric_name\"=\"spanner_conflict\" resource.label.\"job_name\"=\"__DATAFLOW_JOB_NAME__\""
+                },
+                "unitOverride": "1"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "title": "Spanner Retry Count",
+        "xyChart": {
+          "dataSets": [
+            {
+              "plotType": "LINE",
+              "targetAxis": "Y1",
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "crossSeriesReducer": "REDUCE_SUM",
+                    "perSeriesAligner": "ALIGN_MEAN"
+                  },
+                  "filter": "metric.type=\"dataflow.googleapis.com/job/user_counter\" resource.type=\"dataflow_job\" metric.label.\"metric_name\"=\"spanner_retry_count\" resource.label.\"job_name\"=\"__DATAFLOW_JOB_NAME__\""
+                },
+                "unitOverride": "1"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "title": "Spanner Failure Count",
+        "xyChart": {
+          "dataSets": [
+            {
+              "plotType": "LINE",
+              "targetAxis": "Y1",
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "crossSeriesReducer": "REDUCE_SUM",
+                    "perSeriesAligner": "ALIGN_MEAN"
+                  },
+                  "filter": "metric.type=\"dataflow.googleapis.com/job/user_counter\" resource.type=\"dataflow_job\" metric.label.\"metric_name\"=\"spanner_failure_count\" resource.label.\"job_name\"=\"__DATAFLOW_JOB_NAME__\""
+                },
+                "unitOverride": "1"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "title": "Processing Latency - Mean",
+        "xyChart": {
+          "dataSets": [
+            {
+              "plotType": "LINE",
+              "targetAxis": "Y1",
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "crossSeriesReducer": "REDUCE_MAX",
+                    "perSeriesAligner": "ALIGN_MEAN"
+                  },
+                  "filter": "metric.type=\"dataflow.googleapis.com/job/user_counter\" resource.type=\"dataflow_job\" metric.label.\"metric_name\"=\"telemetry_processing_latency_ms_MEAN\" resource.label.\"job_name\"=\"__DATAFLOW_JOB_NAME__\""
+                },
+                "unitOverride": "ms"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "title": "Processing Latency - Maximum",
+        "xyChart": {
+          "dataSets": [
+            {
+              "plotType": "LINE",
+              "targetAxis": "Y1",
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "aggregation": {
+                    "alignmentPeriod": "60s",
+                    "crossSeriesReducer": "REDUCE_MAX",
+                    "perSeriesAligner": "ALIGN_MAX"
+                  },
+                  "filter": "metric.type=\"dataflow.googleapis.com/job/user_counter\" resource.type=\"dataflow_job\" metric.label.\"metric_name\"=\"telemetry_processing_latency_ms_MAX\" resource.label.\"job_name\"=\"__DATAFLOW_JOB_NAME__\""
+                },
+                "unitOverride": "ms"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "title": "Valid Telemetry Rate",
+        "xyChart": {
+          "dataSets": [
+            {
+              "plotType": "LINE",
+              "targetAxis": "Y1",
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum(delta(dataflow_googleapis_com:job_user_counter{monitored_resource=\"dataflow_job\",metric_name=\"telemetry_valid\",job_id=\"__DATAFLOW_JOB_ID__\"}[5m])) / 5"
+              }
+            }
+          ],
+          "yAxis": {
+            "label": "Events per minute",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Invalid Telemetry Rate",
+        "xyChart": {
+          "chartOptions": {
+            "mode": "COLOR"
+          },
+          "dataSets": [
+            {
+              "minAlignmentPeriod": "300s",
+              "plotType": "LINE",
+              "targetAxis": "Y1",
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum(delta(dataflow_googleapis_com:job_user_counter{monitored_resource=\"dataflow_job\",metric_name=\"telemetry_invalid\",job_name=\"__DATAFLOW_JOB_NAME__\"}[5m])) / 5"
+              }
+            }
+          ],
+          "timeshiftDuration": "0s",
+          "yAxis": {
+            "label": "Events / minute",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Replay Events Rate",
+        "xyChart": {
+          "chartOptions": {
+            "mode": "COLOR"
+          },
+          "dataSets": [
+            {
+              "minAlignmentPeriod": "300s",
+              "plotType": "LINE",
+              "targetAxis": "Y1",
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum(delta(dataflow_googleapis_com:job_user_counter{monitored_resource=\"dataflow_job\",metric_name=\"spanner_replay\",job_name=\"__DATAFLOW_JOB_NAME__\"}[5m])) / 5"
+              }
+            }
+          ],
+          "timeshiftDuration": "0s",
+          "yAxis": {
+            "label": "Events / minute",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Conflict Events Rate",
+        "xyChart": {
+          "chartOptions": {
+            "mode": "COLOR"
+          },
+          "dataSets": [
+            {
+              "minAlignmentPeriod": "300s",
+              "plotType": "LINE",
+              "targetAxis": "Y1",
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum(delta(dataflow_googleapis_com:job_user_counter{monitored_resource=\"dataflow_job\",metric_name=\"telemetry_payload_conflict\",job_name=\"__DATAFLOW_JOB_NAME__\"}[5m])) / 5"
+              }
+            }
+          ],
+          "timeshiftDuration": "0s",
+          "yAxis": {
+            "label": "Events / minute",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Spanner Retry Rate",
+        "xyChart": {
+          "chartOptions": {
+            "mode": "COLOR"
+          },
+          "dataSets": [
+            {
+              "minAlignmentPeriod": "300s",
+              "plotType": "LINE",
+              "targetAxis": "Y1",
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum(delta(dataflow_googleapis_com:job_user_counter{monitored_resource=\"dataflow_job\",metric_name=\"spanner_retry_count\",job_name=\"__DATAFLOW_JOB_NAME__\"}[5m])) / 5"
+              }
+            }
+          ],
+          "timeshiftDuration": "0s",
+          "yAxis": {
+            "label": "Events / minute",
+            "scale": "LINEAR"
+          }
+        }
+      }
+    ]
+  },
+  "name": "projects/391196644919/dashboards/f2a1f52c-f1d1-4dd9-b90f-c5ece590550b"
+}

@@ -1,0 +1,62 @@
+[
+  {
+    "name": "device_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Unique identifier of the IoT device"
+  },
+  {
+    "name": "window_start",
+    "type": "TIMESTAMP",
+    "mode": "REQUIRED",
+    "description": "Start of the Dataflow event-time window"
+  },
+  {
+    "name": "window_end",
+    "type": "TIMESTAMP",
+    "mode": "REQUIRED",
+    "description": "End of the Dataflow event-time window"
+  },
+  {
+    "name": "event_count",
+    "type": "INTEGER",
+    "mode": "REQUIRED",
+    "description": "Number of telemetry events in the device window"
+  },
+  {
+    "name": "avg_temperature",
+    "type": "FLOAT",
+    "mode": "NULLABLE",
+    "description": "Average temperature in the window"
+  },
+  {
+    "name": "min_temperature",
+    "type": "FLOAT",
+    "mode": "NULLABLE",
+    "description": "Minimum temperature in the window"
+  },
+  {
+    "name": "max_temperature",
+    "type": "FLOAT",
+    "mode": "NULLABLE",
+    "description": "Maximum temperature in the window"
+  },
+  {
+    "name": "avg_humidity",
+    "type": "FLOAT",
+    "mode": "NULLABLE",
+    "description": "Average humidity in the window"
+  },
+  {
+    "name": "avg_pressure",
+    "type": "FLOAT",
+    "mode": "NULLABLE",
+    "description": "Average atmospheric pressure in the window"
+  },
+  {
+    "name": "avg_battery_level",
+    "type": "FLOAT",
+    "mode": "NULLABLE",
+    "description": "Average battery level in the window"
+  }
+]

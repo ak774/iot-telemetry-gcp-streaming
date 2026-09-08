@@ -1,0 +1,28 @@
+{
+  "combiner": "OR",
+  "conditions": [
+    {
+      "conditionPrometheusQueryLanguage": {
+        "duration": "0s",
+        "evaluationInterval": "60s",
+        "query": "sum(delta(dataflow_googleapis_com:job_user_counter{monitored_resource=\"dataflow_job\",metric_name=\"spanner_failure_count\",job_name=\"iot-telemetry-stream-v51\"}[5m])) > 0"
+      },
+      "displayName": "Spanner failure count above zero",
+      "name": "projects/iot-gcp-streaming/alertPolicies/14740662748221802159/conditions/9835199080414116562"
+    }
+  ],
+  "creationRecord": {
+    "mutateTime": "2026-09-06T11:52:47.888197151Z",
+    "mutatedBy": "axu04103@gmail.com"
+  },
+  "displayName": "IoT Pipeline - Spanner Failure",
+  "enabled": true,
+  "mutationRecord": {
+    "mutateTime": "2026-09-06T13:35:33.248940823Z",
+    "mutatedBy": "axu04103@gmail.com"
+  },
+  "name": "projects/iot-gcp-streaming/alertPolicies/14740662748221802159",
+  "notificationChannels": [
+    "projects/iot-gcp-streaming/notificationChannels/14350014564454715540"
+  ]
+}

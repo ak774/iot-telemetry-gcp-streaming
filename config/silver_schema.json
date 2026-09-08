@@ -1,0 +1,56 @@
+[
+  {
+    "name": "event_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Unique identifier for the telemetry event"
+  },
+  {
+    "name": "device_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Unique identifier for the IoT device"
+  },
+  {
+    "name": "event_timestamp",
+    "type": "TIMESTAMP",
+    "mode": "REQUIRED",
+    "description": "Timestamp when the sensor generated the event"
+  },
+  {
+    "name": "temperature",
+    "type": "FLOAT",
+    "mode": "NULLABLE",
+    "description": "Temperature recorded by the sensor"
+  },
+  {
+    "name": "humidity",
+    "type": "FLOAT",
+    "mode": "NULLABLE",
+    "description": "Humidity percentage recorded by the sensor"
+  },
+  {
+    "name": "pressure",
+    "type": "FLOAT",
+    "mode": "NULLABLE",
+    "description": "Atmospheric pressure recorded by the sensor"
+  },
+  {
+    "name": "battery_level",
+    "type": "FLOAT",
+    "mode": "NULLABLE",
+    "description": "Remaining battery percentage"
+  },
+  {
+    "name": "window_start",
+    "type": "TIMESTAMP",
+    "mode": "NULLABLE",
+    "description": "Start of the Dataflow event-time window"
+  },
+  {
+    "name": "window_end",
+    "type": "TIMESTAMP",
+    "mode": "NULLABLE",
+    "description": "End of the Dataflow event-time window"
+  }
+]

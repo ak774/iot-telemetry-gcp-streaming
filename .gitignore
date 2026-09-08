@@ -1,6 +1,40 @@
+# Python
 .venv/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# Environment / secrets
 .env
 .env.*
+*.key
+*.pem
+*.json.key
+
+# IDE
 .vscode/
+.idea/
+
+# Python build artifacts
+*.egg-info/
+build/
+dist/
+
+# Test / tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Terraform local state
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+
+
+# Monitoring generated artifacts
+monitoring/generated/
+monitoring/backups/
+
+# Local monitoring exports / temporary files
+monitoring/*.tmp

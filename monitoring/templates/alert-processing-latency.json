@@ -1,0 +1,38 @@
+{
+  "combiner": "OR",
+  "conditions": [
+    {
+      "conditionThreshold": {
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_PERCENTILE_95"
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "duration": "300s",
+        "filter": "metric.type=\"dataflow.googleapis.com/job/bundle_user_processing_latencies\" AND resource.type=\"dataflow_job\" AND metric.labels.job_id=\"__DATAFLOW_JOB_ID__\"",
+        "thresholdValue": 30000.0,
+        "trigger": {
+          "count": 1
+        }
+      },
+      "displayName": "P95 processing latency above 30 seconds",
+      "name": "projects/iot-gcp-streaming/alertPolicies/17119592956886294201/conditions/9835199080414117885"
+    }
+  ],
+  "creationRecord": {
+    "mutateTime": "2026-09-06T11:56:05.410008025Z",
+    "mutatedBy": "axu04103@gmail.com"
+  },
+  "displayName": "IoT Pipeline - Processing Latency P95",
+  "enabled": true,
+  "mutationRecord": {
+    "mutateTime": "2026-09-06T13:36:02.976595416Z",
+    "mutatedBy": "axu04103@gmail.com"
+  },
+  "name": "projects/iot-gcp-streaming/alertPolicies/17119592956886294201",
+  "notificationChannels": [
+    "projects/iot-gcp-streaming/notificationChannels/14350014564454715540"
+  ]
+}

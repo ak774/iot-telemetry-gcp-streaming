@@ -1,0 +1,38 @@
+{
+  "combiner": "OR",
+  "conditions": [
+    {
+      "conditionThreshold": {
+        "aggregations": [
+          {
+            "alignmentPeriod": "60s",
+            "perSeriesAligner": "ALIGN_MEAN"
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "duration": "300s",
+        "filter": "metric.type=\"dataflow.googleapis.com/job/system_lag\" AND resource.type=\"dataflow_job\" AND resource.label.\"job_name\"=\"iot-telemetry-stream-v51\"",
+        "thresholdValue": 60.0,
+        "trigger": {
+          "count": 1
+        }
+      },
+      "displayName": "Dataflow system lag above 60 seconds",
+      "name": "projects/iot-gcp-streaming/alertPolicies/14645557611667265163/conditions/5048441384690650918"
+    }
+  ],
+  "creationRecord": {
+    "mutateTime": "2026-09-06T11:43:57.944768178Z",
+    "mutatedBy": "axu04103@gmail.com"
+  },
+  "displayName": "IoT Pipeline - Dataflow System Lag",
+  "enabled": true,
+  "mutationRecord": {
+    "mutateTime": "2026-09-06T13:34:51.292609667Z",
+    "mutatedBy": "axu04103@gmail.com"
+  },
+  "name": "projects/iot-gcp-streaming/alertPolicies/14645557611667265163",
+  "notificationChannels": [
+    "projects/iot-gcp-streaming/notificationChannels/14350014564454715540"
+  ]
+}

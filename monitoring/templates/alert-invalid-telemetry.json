@@ -1,0 +1,28 @@
+{
+  "combiner": "OR",
+  "conditions": [
+    {
+      "conditionPrometheusQueryLanguage": {
+        "duration": "300s",
+        "evaluationInterval": "60s",
+        "query": "100 * (sum(delta(dataflow_googleapis_com:job_user_counter{monitored_resource=\"dataflow_job\",metric_name=\"telemetry_invalid\",job_name=\"__DATAFLOW_JOB_NAME__\"}[5m])) or vector(0)) / ((sum(delta(dataflow_googleapis_com:job_user_counter{monitored_resource=\"dataflow_job\",metric_name=\"telemetry_valid\",job_name=\"__DATAFLOW_JOB_NAME__\"}[5m])) or vector(0)) + (sum(delta(dataflow_googleapis_com:job_user_counter{monitored_resource=\"dataflow_job\",metric_name=\"telemetry_invalid\",job_name=\"__DATAFLOW_JOB_NAME__\"}[5m])) or vector(0))) > 5"
+      },
+      "displayName": "Invalid telemetry rate above 5 percent",
+      "name": "projects/iot-gcp-streaming/alertPolicies/11342595123112398710/conditions/3379939554775864309"
+    }
+  ],
+  "creationRecord": {
+    "mutateTime": "2026-09-06T11:48:15.998316427Z",
+    "mutatedBy": "axu04103@gmail.com"
+  },
+  "displayName": "IoT Pipeline - Invalid Telemetry Rate",
+  "enabled": true,
+  "mutationRecord": {
+    "mutateTime": "2026-09-06T13:33:40.711548346Z",
+    "mutatedBy": "axu04103@gmail.com"
+  },
+  "name": "projects/iot-gcp-streaming/alertPolicies/11342595123112398710",
+  "notificationChannels": [
+    "projects/iot-gcp-streaming/notificationChannels/14350014564454715540"
+  ]
+}
