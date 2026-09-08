@@ -1,9 +1,13 @@
 terraform {
   required_version = ">= 1.5.0"
 
+  backend "gcs" {
+    bucket = "iot-gcp-streaming-tf-state"
+    prefix = "terraform/state"
+  }
+
   required_providers {
     google = {
-      source  = "hashicorp/google"
       version = "~> 6.0"
     }
   }
