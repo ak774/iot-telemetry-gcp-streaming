@@ -146,3 +146,18 @@ jobs:
             --job-id "${DATAFLOW_JOB_ID}" \
             --region "${DATAFLOW_REGION}" \
             --project "${GCP_PROJECT_ID}"
+
+      - name: Record candidate deployment
+        env:
+          DEPLOYMENT_ID: ${{ github.sha }}
+          DATAFLOW_JOB_NAME: ${{ steps.candidate.outputs.job_name }}
+          DATAFLOW_JOB_ID: ${{ steps.candidate_job.outputs.job_id }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          DEPLOYMENT_ID="${DEPLOYMENT_ID:0:7}"
+
+          python scripts/deployment_identity.py \
+            --deployment-id="${DEPLOYMENT_ID}" \
+            --job-name="${DATAFLOW_JOB_NAME}" \
+            --job-id="${DATAFLOW_JOB_ID}" \
+            --commit-sha="${COMMIT_SHA}"
