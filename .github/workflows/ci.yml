@@ -40,7 +40,7 @@ jobs:
 
       - name: Run tests
         run: |
-          python -m pytest -v tests
+          python -m pytest -v tests --ignore=tests/test_replay_repository_integration.py
 
 
   terraform-validation:
@@ -96,3 +96,46 @@ jobs:
           python -m py_compile monitoring/scripts/deploy_dashboard.py
           python -m py_compile monitoring/scripts/rollback_monitoring.py
           python -m py_compile monitoring/scripts/validate_dataflow_job.py
+
+
+  spanner-integration:
+    name: Spanner Integration Test
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      GCP_PROJECT_ID: iot-gcp-streaming
+      SPANNER_INSTANCE_ID: iot-streaming
+      SPANNER_DATABASE_ID: iot_registry_test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r dataflow/requirements.txt
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/391196644919/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: iot-spanner-integration-test@iot-gcp-streaming.iam.gserviceaccount.com
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Run Spanner integration test
+        run: |
+          python -m pytest -v tests/test_replay_repository_integration.py
+
