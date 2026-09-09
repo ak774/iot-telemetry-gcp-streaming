@@ -409,15 +409,22 @@ def main():
     else:
         print("Current ACTIVE: none")
 
-    print("\n[3] Recording candidate deployment...")
+    if args.promote:
+        print(
+            "\n[3] Candidate already recorded. "
+            "Skipping candidate insertion."
+        )
+    else:
+        print("\n[3] Recording candidate deployment...")
 
-    insert_candidate(
-        client,
-        args.deployment_id,
-        args.job_name,
-        args.job_id,
-        args.commit_sha,
-    )
+        insert_candidate(
+            client,
+            args.deployment_id,
+            args.job_name,
+            args.job_id,
+            args.commit_sha,
+        )
+
 
     if args.fail:
         print("\n[4] Marking candidate FAILED...")
