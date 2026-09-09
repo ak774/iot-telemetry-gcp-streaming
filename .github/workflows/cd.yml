@@ -64,8 +64,8 @@ jobs:
             --job_name="${DATAFLOW_JOB_NAME}" \
             --streaming \
             --machine_type=e2-standard-2 \
+            --service_account_email=iot-dataflow-worker@iot-gcp-streaming.iam.gserviceaccount.com \
             --num_workers=1 \
-            --min_num_workers=1 \
             --max_num_workers=2 \
             --staging_location="${DATAFLOW_BUCKET}/staging/${DATAFLOW_JOB_NAME}" \
             --temp_location="${DATAFLOW_BUCKET}/temp/${DATAFLOW_JOB_NAME}" \
