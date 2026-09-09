@@ -115,614 +115,619 @@ def run():
         StandardOptions
     ).streaming = True
 
-    with beam.Pipeline(
+    pipeline = beam.Pipeline(
         options=pipeline_options
-    ) as pipeline:
+    )
 
-        # ---------------------------------------------
-        # Read from Pub/Sub
-        # ---------------------------------------------
+    # ---------------------------------------------
+    # Read from Pub/Sub
+    # ---------------------------------------------
 
-        messages = (
-            pipeline
-            | "ReadFromPubSub"
-            >> beam.io.ReadFromPubSub(
-                subscription=PUBSUB_SUBSCRIPTION
+    messages = (
+        pipeline
+        | "ReadFromPubSub"
+        >> beam.io.ReadFromPubSub(
+            subscription=PUBSUB_SUBSCRIPTION
+        )
+    )
+
+
+    # ---------------------------------------------
+    # Parse JSON
+    # ---------------------------------------------
+
+    parsed = (
+        messages
+        | "ParseJSON"
+        >> beam.ParDo(
+            ParseTelemetry()
+        ).with_outputs(
+            ParseTelemetry.VALID,
+            ParseTelemetry.INVALID
+        )
+    )
+
+
+    # ---------------------------------------------
+    # Parser-invalid -> DLQ
+    # ---------------------------------------------
+
+    parser_dlq = (
+        parsed[ParseTelemetry.INVALID]
+        | "FormatParserDLQ"
+        >> beam.ParDo(
+            FormatDLQ()
+        )
+    )
+
+
+    # ---------------------------------------------
+    # Validate telemetry
+    # ---------------------------------------------
+
+    validated = (
+        parsed[ParseTelemetry.VALID]
+        | "ValidateTelemetry"
+        >> beam.ParDo(
+            ValidateTelemetry()
+        ).with_outputs(
+            ValidateTelemetry.VALID,
+            ValidateTelemetry.INVALID
+        )
+    )
+
+
+    # ---------------------------------------------
+    # Valid -> Raw BigQuery
+    # ---------------------------------------------
+
+    (
+        validated[ValidateTelemetry.VALID]
+        | "WriteValidToBigQuery"
+        >> beam.io.WriteToBigQuery(
+            RAW_TABLE,
+            create_disposition=(
+                beam.io.BigQueryDisposition.CREATE_NEVER
+            ),
+            write_disposition=(
+                beam.io.BigQueryDisposition.WRITE_APPEND
+            )
+        )
+    )
+
+
+    # ---------------------------------------------
+    # DEBUG: Event-time window only
+    # ---------------------------------------------
+
+    (
+        validated[ValidateTelemetry.VALID]
+
+        | "DebugAssignTimestampForWindow"
+        >> beam.ParDo(
+            AssignEventTimestamp()
+        )
+
+        | "DebugApplyEventTimeWindow"
+        >> ApplyTelemetryWindow()
+
+        | "DebugEventTimeWindowRecord"
+        >> beam.Map(
+            lambda record: {
+                "event_id": record["event_id"],
+                "device_id": record["device_id"],
+                "event_timestamp": record["event_timestamp"]
+            }
+        )
+
+        | "WriteEventTimeWindowDebug"
+        >> beam.io.WriteToBigQuery(
+            "iot-gcp-streaming:iot_gold.gold_event_time_window_debug",
+            create_disposition=(
+                beam.io.BigQueryDisposition.CREATE_NEVER
+            ),
+            write_disposition=(
+                beam.io.BigQueryDisposition.WRITE_APPEND
+            )
+        )
+    )
+
+    # ---------------------------------------------
+    # DEBUG: Processing-time window + Count.PerKey
+    # ---------------------------------------------
+
+    (
+        validated[ValidateTelemetry.VALID]
+
+        | "DebugProcessingTimeWindowDirect"
+        >> beam.WindowInto(
+            beam.window.FixedWindows(60),
+            trigger=beam.trigger.AfterProcessingTime(10),
+            accumulation_mode=beam.trigger.AccumulationMode.DISCARDING
+        )
+
+        | "DebugPTCountKeyByDevice"
+        >> beam.Map(
+            lambda record: (
+                record["device_id"],
+                1
             )
         )
 
+        | "DebugPTCountPerDevice"
+        >> beam.CombinePerKey(sum)
 
-        # ---------------------------------------------
-        # Parse JSON
-        # ---------------------------------------------
+        | "DebugPTPrepareCountRecord"
+        >> beam.Map(
+            lambda element: {
+                "device_id": element[0],
+                "record_count": element[1]
+            }
+        )
 
-        parsed = (
-            messages
-            | "ParseJSON"
-            >> beam.ParDo(
-                ParseTelemetry()
-            ).with_outputs(
-                ParseTelemetry.VALID,
-                ParseTelemetry.INVALID
+        | "WritePTCountPerKeyDebug"
+        >> beam.io.WriteToBigQuery(
+            "iot-gcp-streaming:iot_gold.gold_pt_count_per_key_debug",
+            create_disposition=(
+                beam.io.BigQueryDisposition.CREATE_NEVER
+            ),
+            write_disposition=(
+                beam.io.BigQueryDisposition.WRITE_APPEND
+            )
+        )
+    )
+
+    # ---------------------------------------------
+    # DEBUG: Event timestamp assignment only
+    # ---------------------------------------------
+
+    (
+        validated[ValidateTelemetry.VALID]
+
+        | "DebugAssignEventTimestamp"
+        >> beam.ParDo(
+            AssignEventTimestamp()
+        )
+
+        | "DebugEventTimestampRecord"
+        >> beam.Map(
+            lambda record: {
+                "event_id": record["event_id"],
+                "device_id": record["device_id"],
+                "event_timestamp": record["event_timestamp"]
+            }
+        )
+
+        | "WriteEventTimestampDebug"
+        >> beam.io.WriteToBigQuery(
+            "iot-gcp-streaming:iot_gold.gold_event_timestamp_debug",
+            create_disposition=(
+                beam.io.BigQueryDisposition.CREATE_NEVER
+            ),
+            write_disposition=(
+                beam.io.BigQueryDisposition.WRITE_APPEND
+            )
+        )
+    )
+
+    # ---------------------------------------------
+    # DEBUG: Event-time window + Count.PerKey
+    # FORCE FIRE AFTER 3 ELEMENTS
+    # ---------------------------------------------
+
+    (
+        validated[ValidateTelemetry.VALID]
+        | "DebugForcedAssignTimestamp"
+        >> beam.ParDo(
+            AssignEventTimestamp()
+        )
+        | "DebugForcedEventTimeWindow"
+        >> beam.WindowInto(
+            beam.window.FixedWindows(60)
+        )
+        | "DebugForcedCountKeyByDevice"
+        >> beam.Map(
+            lambda record: (
+                record["device_id"],
+                1
+            )
+        )
+        | "DebugForcedCountPerDevice"
+        >> beam.CombinePerKey(sum)
+        | "DebugForcedPrepareCount"
+        >> beam.Map(
+            lambda element: {
+                "device_id": element[0],
+                "record_count": element[1]
+            }
+        )
+        | "WriteForcedEventTimeCountDebug"
+        >> beam.io.WriteToBigQuery(
+            "iot-gcp-streaming:iot_gold.gold_event_time_count_debug",
+            create_disposition=beam.io.BigQueryDisposition.CREATE_NEVER,
+            write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND
+        )
+    )
+
+    (
+        validated[ValidateTelemetry.VALID]
+        | "DiagAssignEventTimestamp"
+        >> beam.ParDo(AssignEventTimestamp())
+        | "DiagEventTimeWindow"
+        >> beam.WindowInto(
+            beam.window.FixedWindows(60)
+        )
+        | "DiagKeyByDevice"
+        >> beam.Map(
+            lambda record: (
+                record["device_id"],
+                1
+            )
+        )
+        | "DiagGroupByDevice"
+        >> beam.GroupByKey()
+        | "DiagPrepareGroupCount"
+        >> beam.Map(
+            lambda element: {
+                "device_id": element[0],
+                "record_count": len(list(element[1]))
+            }
+        )
+        | "WriteEventTimeGroupCountDebug"
+        >> beam.io.WriteToBigQuery(
+            "iot-gcp-streaming:iot_gold.gold_event_time_group_count_debug",
+            create_disposition=beam.io.BigQueryDisposition.CREATE_NEVER,
+            write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND
+        )
+    )
+    # ---------------------------------------------
+    # Event time + windowing
+    # ---------------------------------------------
+
+
+    fingerprinted_validated = (
+        validated[ValidateTelemetry.VALID]
+        | "MeasureProcessingLatency"
+        >> beam.ParDo(MeasureProcessingLatency())
+        | "AddPayloadFingerprint"
+        >> beam.ParDo(AddPayloadFingerprint())
+    )
+
+
+    conflict_checked = (
+        fingerprinted_validated
+
+        | "DetectTelemetryConflicts"
+        >> DetectTelemetryConflicts()
+    )
+
+    # ---------------------------------------------
+    # Conflicting event_id -> conflict audit table
+    # ---------------------------------------------
+
+    conflict_records = (
+        conflict_checked.conflict
+        | "PrepareConflictRecord"
+        >> beam.ParDo(
+            PrepareConflictRecord()
+        )
+    )
+
+    (
+        conflict_records
+        | "WriteConflictsToBigQuery"
+        >> beam.io.WriteToBigQuery(
+            CONFLICT_TABLE,
+            create_disposition=(
+                beam.io.BigQueryDisposition.CREATE_NEVER
+            ),
+            write_disposition=(
+                beam.io.BigQueryDisposition.WRITE_APPEND
+            )
+        )
+    )
+
+
+    deduplicated_validated = (
+        conflict_checked.clean
+
+        | "AssignEventTimestamp"
+        >> beam.ParDo(
+            AssignEventTimestamp()
+        )
+
+        | "DeduplicateTelemetry"
+        >> DeduplicateTelemetry()
+    )
+
+    durable_replay_checked = (
+        deduplicated_validated
+        | "DurableReplayDecision"
+        >> beam.ParDo(
+            DurableReplayDecision(
+                project_id=PROJECT_ID,
+                instance_id=SPANNER_INSTANCE_ID,
+                database_id=SPANNER_DATABASE_ID,
+            )
+        ).with_outputs(
+            "replay",
+            "conflict",
+            "new",
+        )
+    )
+
+    # ---------------------------------------------------------
+    # DURABLE REPLAY -> REPLAY AUDIT TABLE
+    # ---------------------------------------------------------
+
+    replay_audit_records = (
+        durable_replay_checked.replay
+
+        | "PrepareReplayAuditRecord"
+        >> beam.ParDo(
+            PrepareReplayAuditRecord()
+        )
+    )
+
+    (
+        replay_audit_records
+
+        | "WriteReplayAuditToBigQuery"
+        >> beam.io.WriteToBigQuery(
+            "iot-gcp-streaming:iot_silver.telemetry_replays",
+            create_disposition=(
+                beam.io.BigQueryDisposition.CREATE_NEVER
+            ),
+            write_disposition=(
+                beam.io.BigQueryDisposition.WRITE_APPEND
+            )
+        )
+    )
+
+    replay_conflict_records = (
+        durable_replay_checked.conflict
+        | "PrepareReplayConflictRecord"
+        >> beam.ParDo(PrepareReplayConflictRecord())
+    )
+
+    (
+        replay_conflict_records
+        | "WriteReplayConflictsToBigQuery"
+        >> beam.io.WriteToBigQuery(
+            CONFLICT_TABLE,
+            create_disposition=beam.io.BigQueryDisposition.CREATE_NEVER,
+            write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND
+        )
+    )
+
+    windowed_validated = (
+        durable_replay_checked.new
+        | "ApplyTelemetryWindow"
+        >> ApplyTelemetryWindow()
+    )
+
+
+    # =================================================
+    # SILVER LAYER
+    # =================================================
+
+    silver_records = (
+        windowed_validated
+
+        | "PrepareSilverRecord"
+        >> beam.ParDo(
+            PrepareSilverRecord()
+        )
+    )
+
+
+
+
+    # ---------------------------------------------------------
+    # DURABLE REPLAY REGISTRY
+    # ---------------------------------------------------------
+
+    replay_registry_records = (
+        windowed_validated
+
+        | "PrepareReplayRegistryRecord"
+        >> beam.ParDo(
+            PrepareReplayRegistryRecord()
+        )
+    )
+
+    (
+        replay_registry_records
+        | "WriteReplayRegistryToBigQuery"
+        >> beam.io.WriteToBigQuery(
+            "iot-gcp-streaming:iot_silver.telemetry_event_registry",
+            create_disposition=(
+                beam.io.BigQueryDisposition.CREATE_NEVER
+            ),
+            write_disposition=(
+                beam.io.BigQueryDisposition.WRITE_APPEND
+            )
+        )
+    )
+
+    (
+        silver_records
+        | "WriteSilverToBigQuery"
+        >> beam.io.WriteToBigQuery(
+            SILVER_TABLE,
+            create_disposition=(
+                beam.io.BigQueryDisposition.CREATE_NEVER
+            ),
+            write_disposition=(
+                beam.io.BigQueryDisposition.WRITE_APPEND
+            )
+        )
+    )
+
+    # ---------------------------------------------------------
+    # TEMPORARY GOLD INPUT DEBUG
+    # ---------------------------------------------------------
+
+    (
+        windowed_validated
+        | "PrepareGoldInputDebugRecord"
+        >> beam.ParDo(
+            PrepareGoldInputDebugRecord()
+        )
+        | "WriteGoldInputDebug"
+        >> beam.io.WriteToBigQuery(
+            "iot-gcp-streaming:iot_gold.gold_input_debug",
+            create_disposition=(
+                beam.io.BigQueryDisposition.CREATE_NEVER
+            ),
+            write_disposition=(
+                beam.io.BigQueryDisposition.WRITE_APPEND
+            )
+        )
+    )
+
+    (
+        windowed_validated
+        | "DebugKeyByDevice"
+        >> beam.Map(
+            lambda record: (
+                record["device_id"],
+                record
+            )
+        )
+        | "DebugGroupByDevice"
+        >> beam.GroupByKey()
+        | "DebugPrepareGroupedRecord"
+        >> beam.Map(
+            lambda element: {
+                "device_id": element[0],
+                "record_count": len(list(element[1]))
+            }
+        )
+        | "WriteGroupedDebug"
+        >> beam.io.WriteToBigQuery(
+            "iot-gcp-streaming:iot_gold.gold_group_debug",
+            create_disposition=(
+                beam.io.BigQueryDisposition.CREATE_NEVER
+            ),
+            write_disposition=(
+                beam.io.BigQueryDisposition.WRITE_APPEND
+            )
+        )
+    )
+
+    processing_time_group_debug = (
+        windowed_validated
+        | "DebugProcessingTimeWindow"
+        >> beam.WindowInto(
+            beam.window.FixedWindows(60),
+            trigger=beam.trigger.AfterProcessingTime(10),
+            accumulation_mode=beam.trigger.AccumulationMode.DISCARDING
+        )
+        | "DebugPTKeyByDevice"
+        >> beam.Map(
+            lambda record: (
+                record["device_id"],
+                record
+            )
+        )
+        | "DebugPTGroupByDevice"
+        >> beam.GroupByKey()
+        | "DebugPTPrepareGroupedRecord"
+        >> beam.Map(
+            lambda element: {
+                "device_id": element[0],
+                "record_count": len(list(element[1]))
+            }
+        )
+        | "WriteProcessingTimeGroupedDebug"
+        >> beam.io.WriteToBigQuery(
+            "iot-gcp-streaming:iot_gold.gold_processing_time_debug",
+            create_disposition=beam.io.BigQueryDisposition.CREATE_NEVER,
+            write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND
+        )
+    )
+    # =================================================
+    # GOLD LAYER
+    # =================================================
+
+    gold_aggregated = (
+        windowed_validated
+
+        | "KeyByDevice"
+        >> beam.Map(
+            lambda record: (
+                record["device_id"],
+                record
             )
         )
 
-
-        # ---------------------------------------------
-        # Parser-invalid -> DLQ
-        # ---------------------------------------------
-
-        parser_dlq = (
-            parsed[ParseTelemetry.INVALID]
-            | "FormatParserDLQ"
-            >> beam.ParDo(
-                FormatDLQ()
-            )
+        | "AggregateTelemetry"
+        >> beam.CombinePerKey(
+            AggregateTelemetry()
         )
 
+        | "PrepareGoldRecord"
+        >> beam.ParDo(
+            PrepareGoldRecord()
+        )
+    )
 
-        # ---------------------------------------------
-        # Validate telemetry
-        # ---------------------------------------------
 
-        validated = (
-            parsed[ParseTelemetry.VALID]
-            | "ValidateTelemetry"
-            >> beam.ParDo(
-                ValidateTelemetry()
-            ).with_outputs(
-                ValidateTelemetry.VALID,
-                ValidateTelemetry.INVALID
+    (
+        gold_aggregated
+        | "WriteGoldToBigQuery"
+        >> beam.io.WriteToBigQuery(
+            GOLD_TABLE,
+            create_disposition=(
+                beam.io.BigQueryDisposition.CREATE_NEVER
+            ),
+            write_disposition=(
+                beam.io.BigQueryDisposition.WRITE_APPEND
             )
         )
+    )
 
 
-        # ---------------------------------------------
-        # Valid -> Raw BigQuery
-        # ---------------------------------------------
+    # ---------------------------------------------
+    # Validator-invalid -> DLQ
+    # ---------------------------------------------
 
-        (
-            validated[ValidateTelemetry.VALID]
-            | "WriteValidToBigQuery"
-            >> beam.io.WriteToBigQuery(
-                RAW_TABLE,
-                create_disposition=(
-                    beam.io.BigQueryDisposition.CREATE_NEVER
-                ),
-                write_disposition=(
-                    beam.io.BigQueryDisposition.WRITE_APPEND
-                )
-            )
+    validator_dlq = (
+        validated[ValidateTelemetry.INVALID]
+        | "FormatValidatorDLQ"
+        >> beam.ParDo(
+            FormatDLQ()
         )
+    )
 
 
-        # ---------------------------------------------
-        # DEBUG: Event-time window only
-        # ---------------------------------------------
+    # ---------------------------------------------
+    # Merge DLQ streams
+    # ---------------------------------------------
 
-        (
-            validated[ValidateTelemetry.VALID]
-
-            | "DebugAssignTimestampForWindow"
-            >> beam.ParDo(
-                AssignEventTimestamp()
-            )
-
-            | "DebugApplyEventTimeWindow"
-            >> ApplyTelemetryWindow()
-
-            | "DebugEventTimeWindowRecord"
-            >> beam.Map(
-                lambda record: {
-                    "event_id": record["event_id"],
-                    "device_id": record["device_id"],
-                    "event_timestamp": record["event_timestamp"]
-                }
-            )
-
-            | "WriteEventTimeWindowDebug"
-            >> beam.io.WriteToBigQuery(
-                "iot-gcp-streaming:iot_gold.gold_event_time_window_debug",
-                create_disposition=(
-                    beam.io.BigQueryDisposition.CREATE_NEVER
-                ),
-                write_disposition=(
-                    beam.io.BigQueryDisposition.WRITE_APPEND
-                )
-            )
+    (
+        [
+            parser_dlq,
+            validator_dlq
+        ]
+        | "FlattenDLQ"
+        >> beam.Flatten()
+        | "WriteToDLQ"
+        >> beam.io.WriteToPubSub(
+            DLQ_TOPIC
         )
-
-        # ---------------------------------------------
-        # DEBUG: Processing-time window + Count.PerKey
-        # ---------------------------------------------
-
-        (
-            validated[ValidateTelemetry.VALID]
-
-            | "DebugProcessingTimeWindowDirect"
-            >> beam.WindowInto(
-                beam.window.FixedWindows(60),
-                trigger=beam.trigger.AfterProcessingTime(10),
-                accumulation_mode=beam.trigger.AccumulationMode.DISCARDING
-            )
-
-            | "DebugPTCountKeyByDevice"
-            >> beam.Map(
-                lambda record: (
-                    record["device_id"],
-                    1
-                )
-            )
-
-            | "DebugPTCountPerDevice"
-            >> beam.CombinePerKey(sum)
-
-            | "DebugPTPrepareCountRecord"
-            >> beam.Map(
-                lambda element: {
-                    "device_id": element[0],
-                    "record_count": element[1]
-                }
-            )
-
-            | "WritePTCountPerKeyDebug"
-            >> beam.io.WriteToBigQuery(
-                "iot-gcp-streaming:iot_gold.gold_pt_count_per_key_debug",
-                create_disposition=(
-                    beam.io.BigQueryDisposition.CREATE_NEVER
-                ),
-                write_disposition=(
-                    beam.io.BigQueryDisposition.WRITE_APPEND
-                )
-            )
-        )
-
-        # ---------------------------------------------
-        # DEBUG: Event timestamp assignment only
-        # ---------------------------------------------
-
-        (
-            validated[ValidateTelemetry.VALID]
-
-            | "DebugAssignEventTimestamp"
-            >> beam.ParDo(
-                AssignEventTimestamp()
-            )
-
-            | "DebugEventTimestampRecord"
-            >> beam.Map(
-                lambda record: {
-                    "event_id": record["event_id"],
-                    "device_id": record["device_id"],
-                    "event_timestamp": record["event_timestamp"]
-                }
-            )
-
-            | "WriteEventTimestampDebug"
-            >> beam.io.WriteToBigQuery(
-                "iot-gcp-streaming:iot_gold.gold_event_timestamp_debug",
-                create_disposition=(
-                    beam.io.BigQueryDisposition.CREATE_NEVER
-                ),
-                write_disposition=(
-                    beam.io.BigQueryDisposition.WRITE_APPEND
-                )
-            )
-        )
-
-        # ---------------------------------------------
-        # DEBUG: Event-time window + Count.PerKey
-        # FORCE FIRE AFTER 3 ELEMENTS
-        # ---------------------------------------------
-
-        (
-            validated[ValidateTelemetry.VALID]
-            | "DebugForcedAssignTimestamp"
-            >> beam.ParDo(
-                AssignEventTimestamp()
-            )
-            | "DebugForcedEventTimeWindow"
-            >> beam.WindowInto(
-                beam.window.FixedWindows(60)
-            )
-            | "DebugForcedCountKeyByDevice"
-            >> beam.Map(
-                lambda record: (
-                    record["device_id"],
-                    1
-                )
-            )
-            | "DebugForcedCountPerDevice"
-            >> beam.CombinePerKey(sum)
-            | "DebugForcedPrepareCount"
-            >> beam.Map(
-                lambda element: {
-                    "device_id": element[0],
-                    "record_count": element[1]
-                }
-            )
-            | "WriteForcedEventTimeCountDebug"
-            >> beam.io.WriteToBigQuery(
-                "iot-gcp-streaming:iot_gold.gold_event_time_count_debug",
-                create_disposition=beam.io.BigQueryDisposition.CREATE_NEVER,
-                write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND
-            )
-        )
-
-        (
-            validated[ValidateTelemetry.VALID]
-            | "DiagAssignEventTimestamp"
-            >> beam.ParDo(AssignEventTimestamp())
-            | "DiagEventTimeWindow"
-            >> beam.WindowInto(
-                beam.window.FixedWindows(60)
-            )
-            | "DiagKeyByDevice"
-            >> beam.Map(
-                lambda record: (
-                    record["device_id"],
-                    1
-                )
-            )
-            | "DiagGroupByDevice"
-            >> beam.GroupByKey()
-            | "DiagPrepareGroupCount"
-            >> beam.Map(
-                lambda element: {
-                    "device_id": element[0],
-                    "record_count": len(list(element[1]))
-                }
-            )
-            | "WriteEventTimeGroupCountDebug"
-            >> beam.io.WriteToBigQuery(
-                "iot-gcp-streaming:iot_gold.gold_event_time_group_count_debug",
-                create_disposition=beam.io.BigQueryDisposition.CREATE_NEVER,
-                write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND
-            )
-        )
-        # ---------------------------------------------
-        # Event time + windowing
-        # ---------------------------------------------
-
-
-        fingerprinted_validated = (
-            validated[ValidateTelemetry.VALID]
-            | "MeasureProcessingLatency"
-            >> beam.ParDo(MeasureProcessingLatency())
-            | "AddPayloadFingerprint"
-            >> beam.ParDo(AddPayloadFingerprint())
-        )
-
-
-        conflict_checked = (
-            fingerprinted_validated
-
-            | "DetectTelemetryConflicts"
-            >> DetectTelemetryConflicts()
-        )
-
-        # ---------------------------------------------
-        # Conflicting event_id -> conflict audit table
-        # ---------------------------------------------
-
-        conflict_records = (
-            conflict_checked.conflict
-            | "PrepareConflictRecord"
-            >> beam.ParDo(
-                PrepareConflictRecord()
-            )
-        )
-
-        (
-            conflict_records
-            | "WriteConflictsToBigQuery"
-            >> beam.io.WriteToBigQuery(
-                CONFLICT_TABLE,
-                create_disposition=(
-                    beam.io.BigQueryDisposition.CREATE_NEVER
-                ),
-                write_disposition=(
-                    beam.io.BigQueryDisposition.WRITE_APPEND
-                )
-            )
-        )
-
-
-        deduplicated_validated = (
-            conflict_checked.clean
-
-            | "AssignEventTimestamp"
-            >> beam.ParDo(
-                AssignEventTimestamp()
-            )
-
-            | "DeduplicateTelemetry"
-            >> DeduplicateTelemetry()
-        )
-
-        durable_replay_checked = (
-            deduplicated_validated
-            | "DurableReplayDecision"
-            >> beam.ParDo(
-                DurableReplayDecision(
-                    project_id=PROJECT_ID,
-                    instance_id=SPANNER_INSTANCE_ID,
-                    database_id=SPANNER_DATABASE_ID,
-                )
-            ).with_outputs(
-                "replay",
-                "conflict",
-                "new",
-            )
-        )
-
-        # ---------------------------------------------------------
-        # DURABLE REPLAY -> REPLAY AUDIT TABLE
-        # ---------------------------------------------------------
-
-        replay_audit_records = (
-            durable_replay_checked.replay
-
-            | "PrepareReplayAuditRecord"
-            >> beam.ParDo(
-                PrepareReplayAuditRecord()
-            )
-        )
-
-        (
-            replay_audit_records
-
-            | "WriteReplayAuditToBigQuery"
-            >> beam.io.WriteToBigQuery(
-                "iot-gcp-streaming:iot_silver.telemetry_replays",
-                create_disposition=(
-                    beam.io.BigQueryDisposition.CREATE_NEVER
-                ),
-                write_disposition=(
-                    beam.io.BigQueryDisposition.WRITE_APPEND
-                )
-            )
-        )
-
-        replay_conflict_records = (
-            durable_replay_checked.conflict
-            | "PrepareReplayConflictRecord"
-            >> beam.ParDo(PrepareReplayConflictRecord())
-        )
-
-        (
-            replay_conflict_records
-            | "WriteReplayConflictsToBigQuery"
-            >> beam.io.WriteToBigQuery(
-                CONFLICT_TABLE,
-                create_disposition=beam.io.BigQueryDisposition.CREATE_NEVER,
-                write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND
-            )
-        )
-
-        windowed_validated = (
-            durable_replay_checked.new
-            | "ApplyTelemetryWindow"
-            >> ApplyTelemetryWindow()
-        )
-
-
-        # =================================================
-        # SILVER LAYER
-        # =================================================
-
-        silver_records = (
-            windowed_validated
-
-            | "PrepareSilverRecord"
-            >> beam.ParDo(
-                PrepareSilverRecord()
-            )
-        )
-
-
-
-
-        # ---------------------------------------------------------
-        # DURABLE REPLAY REGISTRY
-        # ---------------------------------------------------------
-
-        replay_registry_records = (
-            windowed_validated
-
-            | "PrepareReplayRegistryRecord"
-            >> beam.ParDo(
-                PrepareReplayRegistryRecord()
-            )
-        )
-
-        (
-            replay_registry_records
-            | "WriteReplayRegistryToBigQuery"
-            >> beam.io.WriteToBigQuery(
-                "iot-gcp-streaming:iot_silver.telemetry_event_registry",
-                create_disposition=(
-                    beam.io.BigQueryDisposition.CREATE_NEVER
-                ),
-                write_disposition=(
-                    beam.io.BigQueryDisposition.WRITE_APPEND
-                )
-            )
-        )
-
-        (
-            silver_records
-            | "WriteSilverToBigQuery"
-            >> beam.io.WriteToBigQuery(
-                SILVER_TABLE,
-                create_disposition=(
-                    beam.io.BigQueryDisposition.CREATE_NEVER
-                ),
-                write_disposition=(
-                    beam.io.BigQueryDisposition.WRITE_APPEND
-                )
-            )
-        )
-
-        # ---------------------------------------------------------
-        # TEMPORARY GOLD INPUT DEBUG
-        # ---------------------------------------------------------
-
-        (
-            windowed_validated
-            | "PrepareGoldInputDebugRecord"
-            >> beam.ParDo(
-                PrepareGoldInputDebugRecord()
-            )
-            | "WriteGoldInputDebug"
-            >> beam.io.WriteToBigQuery(
-                "iot-gcp-streaming:iot_gold.gold_input_debug",
-                create_disposition=(
-                    beam.io.BigQueryDisposition.CREATE_NEVER
-                ),
-                write_disposition=(
-                    beam.io.BigQueryDisposition.WRITE_APPEND
-                )
-            )
-        )
-
-        (
-            windowed_validated
-            | "DebugKeyByDevice"
-            >> beam.Map(
-                lambda record: (
-                    record["device_id"],
-                    record
-                )
-            )
-            | "DebugGroupByDevice"
-            >> beam.GroupByKey()
-            | "DebugPrepareGroupedRecord"
-            >> beam.Map(
-                lambda element: {
-                    "device_id": element[0],
-                    "record_count": len(list(element[1]))
-                }
-            )
-            | "WriteGroupedDebug"
-            >> beam.io.WriteToBigQuery(
-                "iot-gcp-streaming:iot_gold.gold_group_debug",
-                create_disposition=(
-                    beam.io.BigQueryDisposition.CREATE_NEVER
-                ),
-                write_disposition=(
-                    beam.io.BigQueryDisposition.WRITE_APPEND
-                )
-            )
-        )
-
-        processing_time_group_debug = (
-            windowed_validated
-            | "DebugProcessingTimeWindow"
-            >> beam.WindowInto(
-                beam.window.FixedWindows(60),
-                trigger=beam.trigger.AfterProcessingTime(10),
-                accumulation_mode=beam.trigger.AccumulationMode.DISCARDING
-            )
-            | "DebugPTKeyByDevice"
-            >> beam.Map(
-                lambda record: (
-                    record["device_id"],
-                    record
-                )
-            )
-            | "DebugPTGroupByDevice"
-            >> beam.GroupByKey()
-            | "DebugPTPrepareGroupedRecord"
-            >> beam.Map(
-                lambda element: {
-                    "device_id": element[0],
-                    "record_count": len(list(element[1]))
-                }
-            )
-            | "WriteProcessingTimeGroupedDebug"
-            >> beam.io.WriteToBigQuery(
-                "iot-gcp-streaming:iot_gold.gold_processing_time_debug",
-                create_disposition=beam.io.BigQueryDisposition.CREATE_NEVER,
-                write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND
-            )
-        )
-        # =================================================
-        # GOLD LAYER
-        # =================================================
-
-        gold_aggregated = (
-            windowed_validated
-
-            | "KeyByDevice"
-            >> beam.Map(
-                lambda record: (
-                    record["device_id"],
-                    record
-                )
-            )
-
-            | "AggregateTelemetry"
-            >> beam.CombinePerKey(
-                AggregateTelemetry()
-            )
-
-            | "PrepareGoldRecord"
-            >> beam.ParDo(
-                PrepareGoldRecord()
-            )
-        )
-
-
-        (
-            gold_aggregated
-            | "WriteGoldToBigQuery"
-            >> beam.io.WriteToBigQuery(
-                GOLD_TABLE,
-                create_disposition=(
-                    beam.io.BigQueryDisposition.CREATE_NEVER
-                ),
-                write_disposition=(
-                    beam.io.BigQueryDisposition.WRITE_APPEND
-                )
-            )
-        )
-
-
-        # ---------------------------------------------
-        # Validator-invalid -> DLQ
-        # ---------------------------------------------
-
-        validator_dlq = (
-            validated[ValidateTelemetry.INVALID]
-            | "FormatValidatorDLQ"
-            >> beam.ParDo(
-                FormatDLQ()
-            )
-        )
-
-
-        # ---------------------------------------------
-        # Merge DLQ streams
-        # ---------------------------------------------
-
-        (
-            [
-                parser_dlq,
-                validator_dlq
-            ]
-            | "FlattenDLQ"
-            >> beam.Flatten()
-            | "WriteToDLQ"
-            >> beam.io.WriteToPubSub(
-                DLQ_TOPIC
-            )
-        )
+    )
 
 
 # ---------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------
+
+    result = pipeline.run()
+
+    if os.getenv("WAIT_FOR_PIPELINE", "true").lower() == "true":
+        result.wait_until_finish()
 
 if __name__ == "__main__":
     run()

@@ -53,6 +53,7 @@ jobs:
       - name: Launch Dataflow candidate
         env:
           PYTHONPATH: ${{ github.workspace }}
+          WAIT_FOR_PIPELINE: "false"
           DATAFLOW_JOB_NAME: ${{ steps.candidate.outputs.job_name }}
           PUBSUB_SUBSCRIPTION: projects/iot-gcp-streaming/subscriptions/dataflow-cd-test-sub
           DLQ_TOPIC: projects/iot-gcp-streaming/topics/iot-telemetry-cd-dlq
