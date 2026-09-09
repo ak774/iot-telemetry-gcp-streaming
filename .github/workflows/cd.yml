@@ -75,7 +75,8 @@ jobs:
             --experiments=use_unified_worker \
             --experiments=use_multiple_sdk_containers \
             --setup_file=./setup.py \
-            --save_main_session
+            --save_main_session \
+            --allow_unsafe_triggers
 
       - name: Verify candidate is RUNNING
         env:
