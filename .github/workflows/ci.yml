@@ -16,6 +16,9 @@ jobs:
     name: Python Tests
     runs-on: ubuntu-latest
 
+    env:
+      GCP_PROJECT_ID: iot-gcp-streaming
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
