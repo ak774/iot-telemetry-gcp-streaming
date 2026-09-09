@@ -1,0 +1,77 @@
+name: IoT Streaming Promotion
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_id:
+        description: "Deployment ID to promote"
+        required: true
+        type: string
+
+      job_name:
+        description: "Dataflow candidate job name"
+        required: true
+        type: string
+
+      job_id:
+        description: "Dataflow candidate job ID"
+        required: true
+        type: string
+
+      commit_sha:
+        description: "Git commit SHA associated with the deployment"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+
+  promote:
+    name: Promote Candidate
+    runs-on: ubuntu-latest
+
+    env:
+      GCP_PROJECT_ID: iot-gcp-streaming
+      DATAFLOW_REGION: asia-south1
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/391196644919/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: iot-cicd-deployer@iot-gcp-streaming.iam.gserviceaccount.com
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r dataflow/requirements.txt
+
+      - name: Promote candidate
+        env:
+          DEPLOYMENT_ID: ${{ inputs.deployment_id }}
+          DATAFLOW_JOB_NAME: ${{ inputs.job_name }}
+          DATAFLOW_JOB_ID: ${{ inputs.job_id }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+        run: |
+          python scripts/deployment_identity.py \
+            --deployment-id="${DEPLOYMENT_ID}" \
+            --job-name="${DATAFLOW_JOB_NAME}" \
+            --job-id="${DATAFLOW_JOB_ID}" \
+            --commit-sha="${COMMIT_SHA}" \
+            --promote
