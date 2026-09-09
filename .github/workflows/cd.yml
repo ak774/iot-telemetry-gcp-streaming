@@ -13,6 +13,11 @@ jobs:
     name: Dataflow Deployment
     runs-on: ubuntu-latest
 
+    env:
+      GCP_PROJECT_ID: iot-gcp-streaming
+      DATAFLOW_REGION: asia-south1
+      DATAFLOW_BUCKET: gs://iot-gcp-streaming-iot-dataflow
+
     steps:
 
       - name: Checkout repository
@@ -27,14 +32,105 @@ jobs:
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Verify Google Cloud identity
-        run: |
-          gcloud auth list
-          gcloud config set project iot-gcp-streaming
-          gcloud projects describe iot-gcp-streaming --format="value(projectId)"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
 
-      - name: Verify Dataflow access
+      - name: Install Dataflow dependencies
         run: |
-          gcloud dataflow jobs list \
-            --region=asia-south1 \
-            --project=iot-gcp-streaming
+          python -m pip install --upgrade pip
+          pip install -r dataflow/requirements.txt
+
+      - name: Generate candidate job name
+        id: candidate
+        run: |
+          CANDIDATE="iot-telemetry-stream-candidate-${GITHUB_RUN_ID}"
+          echo "job_name=${CANDIDATE}" >> "$GITHUB_OUTPUT"
+          echo "Candidate job: ${CANDIDATE}"
+
+      - name: Launch Dataflow candidate
+        env:
+          DATAFLOW_JOB_NAME: ${{ steps.candidate.outputs.job_name }}
+          PUBSUB_SUBSCRIPTION: projects/iot-gcp-streaming/subscriptions/dataflow-cd-test-sub
+          DLQ_TOPIC: projects/iot-gcp-streaming/topics/iot-telemetry-cd-dlq
+        run: |
+          python dataflow/pipeline.py \
+            --runner=DataflowRunner \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${DATAFLOW_REGION}" \
+            --job_name="${DATAFLOW_JOB_NAME}" \
+            --streaming \
+            --machine_type=e2-standard-2 \
+            --num_workers=1 \
+            --min_num_workers=1 \
+            --max_num_workers=2 \
+            --staging_location="${DATAFLOW_BUCKET}/staging/${DATAFLOW_JOB_NAME}" \
+            --temp_location="${DATAFLOW_BUCKET}/temp/${DATAFLOW_JOB_NAME}" \
+            --experiments=use_runner_v2 \
+            --experiments=enable_streaming_engine \
+            --experiments=enable_windmill_service \
+            --experiments=use_unified_worker \
+            --experiments=use_multiple_sdk_containers \
+            --setup_file=./setup.py \
+            --save_main_session
+
+      - name: Verify candidate is RUNNING
+        env:
+          DATAFLOW_JOB_NAME: ${{ steps.candidate.outputs.job_name }}
+        run: |
+          for i in {1..30}; do
+            STATE=$(gcloud dataflow jobs describe "${DATAFLOW_JOB_NAME}" \
+              --region="${DATAFLOW_REGION}" \
+              --project="${GCP_PROJECT_ID}" \
+              --format="value(currentState)")
+
+            echo "Candidate state: ${STATE}"
+
+            if [ "${STATE}" = "JOB_STATE_RUNNING" ]; then
+              echo "Candidate is RUNNING."
+              exit 0
+            fi
+
+            if [[ "${STATE}" == "JOB_STATE_FAILED" || \
+                  "${STATE}" == "JOB_STATE_CANCELLED" || \
+                  "${STATE}" == "JOB_STATE_DRAINED" ]]; then
+              echo "Candidate entered terminal state: ${STATE}"
+              exit 1
+            fi
+
+            sleep 20
+          done
+
+          echo "Candidate did not reach RUNNING state."
+          exit 1
+
+      - name: Get candidate job ID
+        id: candidate_job
+        env:
+          DATAFLOW_JOB_NAME: ${{ steps.candidate.outputs.job_name }}
+        run: |
+          JOB_ID=$(gcloud dataflow jobs describe "${DATAFLOW_JOB_NAME}" \
+            --region="${DATAFLOW_REGION}" \
+            --project="${GCP_PROJECT_ID}" \
+            --format="value(id)")
+
+          if [ -z "${JOB_ID}" ]; then
+            echo "Failed to determine candidate Dataflow job ID."
+            exit 1
+          fi
+
+          echo "job_id=${JOB_ID}" >> "$GITHUB_OUTPUT"
+          echo "Candidate job ID: ${JOB_ID}"
+
+      - name: Validate candidate
+        env:
+          DATAFLOW_JOB_NAME: ${{ steps.candidate.outputs.job_name }}
+          DATAFLOW_JOB_ID: ${{ steps.candidate_job.outputs.job_id }}
+        run: |
+          python monitoring/scripts/validate_dataflow_job.py \
+            --job-name "${DATAFLOW_JOB_NAME}" \
+            --job-id "${DATAFLOW_JOB_ID}" \
+            --region "${DATAFLOW_REGION}" \
+            --project "${GCP_PROJECT_ID}"

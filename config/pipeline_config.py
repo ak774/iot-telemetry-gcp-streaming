@@ -3,14 +3,14 @@ import os
 
 PROJECT_ID = os.environ["GCP_PROJECT_ID"]
 
-PUBSUB_SUBSCRIPTION = (
-    f"projects/{PROJECT_ID}"
-    f"/subscriptions/dataflow-telemetry-sub"
+PUBSUB_SUBSCRIPTION = os.getenv(
+    "PUBSUB_SUBSCRIPTION",
+    f"projects/{PROJECT_ID}/subscriptions/dataflow-telemetry-sub"
 )
 
-DLQ_TOPIC = (
-    f"projects/{PROJECT_ID}"
-    f"/topics/iot-telemetry-dlq"
+DLQ_TOPIC = os.getenv(
+    "DLQ_TOPIC",
+    f"projects/{PROJECT_ID}/topics/iot-telemetry-dlq"
 )
 
 RAW_TABLE = (
