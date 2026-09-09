@@ -37,7 +37,7 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest -v tests
+          python -m pytest -v tests
 
 
   terraform-validation:
