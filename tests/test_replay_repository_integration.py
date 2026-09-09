@@ -1,14 +1,14 @@
+import os
 import uuid
 from datetime import datetime, timezone
-
 from dataflow.transforms.replay_repository import (
     ReplayRegistryRepository,
 )
 
 
-PROJECT_ID = "iot-gcp-streaming"
-INSTANCE_ID = "iot-streaming"
-DATABASE_ID = "iot_registry"
+PROJECT_ID = os.getenv("GCP_PROJECT_ID", "iot-gcp-streaming")
+INSTANCE_ID = os.getenv("SPANNER_INSTANCE_ID", "iot-streaming")
+DATABASE_ID = os.getenv("SPANNER_DATABASE_ID", "iot_registry_test")
 
 
 def make_record(event_id):
